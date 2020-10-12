@@ -4,5 +4,5 @@ from . import event
 
 
 class Observer:
-    def notify(self, event_: event.Event):
+    def notify(self, event_: event.Event) -> None:
         raise NotImplementedError

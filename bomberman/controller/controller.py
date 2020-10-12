@@ -3,21 +3,30 @@
 Handle all the events.
 """
 
+from __future__ import annotations
+
+from typing import List
+
+import pygame
+
+from ..model import entity
 from ..model import maze
-from ..model import player
 from . import control
 
 
-class MazeController:
+class GameController:
     def __init__(self, maze_: maze.Maze):
         self.maze: maze.Maze = maze_
-        self.players = []
+        self.controllers = []
 
-        for player_ in self.maze.players:
-            self.players.append(PlayerController(player_))
+        for entity_ in self.maze.entities:
+            if isinstance(entity_, entity.Player):
+                self.controllers.append(PlayerController(entity_))
+            if isinstance(entity_, entity.Enemy):
+                pass
 
     def handle_event(self, event) -> bool:
-        """Handle all the events of the maze.
+        """Handle all the graphical events.
 
         Args:
             event (pygame.event.Event): The event received.
@@ -25,39 +34,40 @@ class MazeController:
         Returns:
             bool: True if the event has been handled. False otherwise.
         """
-        if event.type == control.TypeControl.KEY_DOWN and event.key == control.BaseControl.RETURN:
-            try:
-                player_ = self.maze.new_player()
-            except maze.MazeFullError:
-                return False
-            self.players.append(PlayerController(player_))
-            return True
+        # if event.type == control.TypeControl.KEY_DOWN and event.key == control.BaseControl.RETURN:
+        #     try:
+        #         player_ = self.maze.new_player()
+        #     except maze.MazeFullError:
+        #         return False
+        #     self.players.append(PlayerController(player_))
+        #     return True
 
-        handled = False
-        for player_ in self.players:
-            handled |= player_.handle_event(event)
-        return handled
+        for controller in self.controllers:
+            if controller.handle_event(event):
+                return True
+        return False
 
-    def time_spend(self, delta_time: float):
-        for player_ in self.players:
-            player_.time_spend(delta_time)
-        for bomb in self.maze.bombs:
-            bomb.time_spend(delta_time)
+    def time_spend(self, delta_time: float) -> None:
+        for entity_ in self.maze.entities.copy():
+            entity_.update(delta_time)
+        for controller in self.controllers:
+            controller.time_spend(delta_time)
 
 
 class PlayerController:
-    def __init__(self, player_: player.Player):
-        self.player = player_
-        self.player_control = control.PlayerControl.from_id(self.player.id)
-        self.current_direction = None
-        self.event_to_direction = {
-            self.player_control.up: player.Direction.UP,
-            self.player_control.down: player.Direction.DOWN,
-            self.player_control.right: player.Direction.RIGHT,
-            self.player_control.left: player.Direction.LEFT,
+    def __init__(self, player: entity.Player) -> None:
+        self.player = player
+        self.player_control = control.PlayerControl.from_identifier(self.player.identifier)
+        self.key_to_direction = {
+            self.player_control.up: entity.Direction.UP,
+            self.player_control.down: entity.Direction.DOWN,
+            self.player_control.right: entity.Direction.RIGHT,
+            self.player_control.left: entity.Direction.LEFT,
         }
+        self.direction_pressed: List[int] = []
+        self.bombing = False
 
-    def handle_event(self, event) -> bool:
+    def handle_event(self, event: pygame.event.Event) -> bool:
         """Handle an event for the player concerned.
 
         Args:
@@ -66,26 +76,29 @@ class PlayerController:
         Returns:
             bool: True if the event has been handled. False otherwise.
         """
+        if event.type not in (control.TypeControl.KEY_DOWN, control.TypeControl.KEY_UP):
+            return False
+
+        if event.key == self.player_control.bombs:
+            self.bombing = (event.type == control.TypeControl.KEY_DOWN)
+            return True
+
+        if event.key not in self.key_to_direction:
+            return False
+
         if event.type == control.TypeControl.KEY_DOWN:
-            direction = self.event_to_direction.get(event.key, None)
-            if direction:
-                self.current_direction = direction
-                return True
+            assert event.key not in self.direction_pressed
+            self.direction_pressed.append(event.key)
+        elif event.type == control.TypeControl.KEY_UP:
+            self.direction_pressed.remove(event.key)
 
-            if event.key == self.player_control.bombs:
-                self.player.bombs()
-                return True
-            return False
-        if event.type == control.TypeControl.KEY_UP:
-            direction = self.event_to_direction.get(event.key, None)
+        if not self.direction_pressed:
+            self.player.set_wanted_direction(None)
+        else:
+            self.player.set_wanted_direction(self.key_to_direction[self.direction_pressed[-1]])
 
-            if direction:
-                if direction == self.current_direction:
-                    self.current_direction = None
-                return True
-            return False
-        return False
+        return True
 
     def time_spend(self, delta_time: float):
-        if self.current_direction:
-            self.player.move(delta_time, self.current_direction)
+        if self.bombing:
+            self.player.bombs()

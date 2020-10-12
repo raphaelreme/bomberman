@@ -8,10 +8,14 @@ class MetaEvent(type):
     """
     id_counter = 0
 
-    def __init__(cls, cls_name, bases, attributes):  # pylint: disable = unused-argument
+    def __init__(cls, cls_name: str, bases: tuple, attributes: dict) -> None:
+        super().__init__(cls_name, bases, attributes)
         cls.ID = MetaEvent.id_counter
         MetaEvent.id_counter += 1
 
 
 class Event(metaclass=MetaEvent):
     ID: int
+
+    def __init__(self) -> None:
+        self.handled = False

@@ -1,48 +1,73 @@
 """Provides the basic class for simple views."""
 
+from __future__ import annotations
+
 import os
-from typing import Dict, Tuple
+from typing import List, Tuple
 
 import pygame
 
 
-class View:
-    """Basic class for simple views.
+def load_image(file_name: str, size: Tuple[int, int] = None) -> pygame.SurfaceType:  # pylint: disable = no-member
+    """Load an image from the image folder (bomberman/data/image).
 
-    It can be displayed on the main_window, but the image has to be set first.
-    Be careful, you have to open a window first.
+    Should only be called when the main window (mode) has been set.
 
-    Attr:
+    Args:
+        file_name (str)
+        size (Optional): Convert the image to this size. (in pixels)
+
+    Return:
+        pygame.Surface: The image loaded.
+    """
+    real_location = os.path.join(os.path.dirname(__file__), '..', 'data', 'image', file_name)
+
+    if size:
+        return pygame.transform.scale(pygame.image.load(real_location).convert_alpha(), size)
+    return pygame.image.load(real_location).convert_alpha()
+
+
+class ImageView:
+    """Class for views based on an image.
+
+    It can be displayed on the main_window, but you have to open a window first.
+
+    Attrs:
         window (pygame.Surface): The pygame surface on which the image
             will be displayed.
         image (pygame.Surface): The pygame surface to display.
-        images (Dict[str, pygame.Surface]): All the other image that can be used for the view.
-        x, y (int): Positions of the image on the window.
+        position (Tuple[int, int]): Positions of the image on the window.
     """
-    def __init__(self):
+
+    def __init__(self, image: pygame.Surface, position: Tuple[int, int]) -> None:  # pylint: disable = no-member
         # pylint does not find the pygame.Surface class.
-        self.window: pygame.SurfaceType = pygame.display.get_surface()  # pylint: disable = no-member
-        self.images: Dict[str, pygame.SurfaceType] = {}  # pylint: disable = no-member
-        self.image: pygame.SurfaceType = None  # pylint: disable = no-member
+        self.window: pygame.Surface = pygame.display.get_surface()  # pylint: disable = no-member
+        self.image = image
+        self.position = position
 
-        self.pos = (0, 0)
+    def display(self) -> None:
+        self.window.blit(self.image, self.position)
 
-    def display(self):
-        if self.image:
-            self.window.blit(self.image, self.pos)
 
-    @staticmethod
-    def load_image(file_name: str, size: Tuple[int, int]) -> pygame.SurfaceType:  # pylint: disable = no-member
-        """Load an image from the img folder.
+class Sprite(ImageView):
+    """Handle a sprite image to animated a view
 
-        Should only be called when the main window (mode) has been set.
+    Attr:
+        SPRITE_SIZE (Tuple[int, int]): Size of all the sprites. (Same size)
+        ROWS (int): Number of sprite rows in the image.
+        COLUMNS (int): Number of sprite columns in the image.
+    """
+    SPRITE_SIZE = (32, 32)
+    ROWS = 1
+    COLUMNS = 1
 
-        Args:
-            file_name (str): The name of the image with the extension.
-            size (Tuple[int, int], optional): The target size.
+    def __init__(self, image: pygame.Surface, position: Tuple[int, int]) -> None:  # pylint: disable = no-member
+        super().__init__(image, position)
+        self.rect = pygame.Rect((0, 0), self.SPRITE_SIZE)
 
-        Return:
-            pygame.Surface: The image loaded.
-        """
-        real_location = os.path.join(os.path.dirname(__file__), '..', 'data', 'image', file_name)
-        return pygame.transform.scale(pygame.image.load(real_location).convert_alpha(), size)
+    def select_sprite(self, row: int, column: int) -> None:
+        assert row < self.ROWS and column < self.COLUMNS
+        self.rect = pygame.Rect((column * self.SPRITE_SIZE[0], row * self.SPRITE_SIZE[1]), self.SPRITE_SIZE)
+
+    def display(self) -> None:
+        self.window.blit(self.image, self.position, self.rect)

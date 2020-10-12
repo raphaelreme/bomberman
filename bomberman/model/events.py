@@ -2,42 +2,35 @@
 
 from __future__ import annotations
 
-from typing import Tuple
-
-from . import obstacle
-from . import player
+from . import entity
 from ..designpattern.event import Event
 
 
-class NewPlayerEvent(Event):
-    def __init__(self, player_: player.Player):
-        self.player = player_
+class EntityEvent(Event):
+    def __init__(self, entity_: entity.Entity):
+        super().__init__()
+        self.entity = entity_
 
 
-class DeletePlayerEvent(Event):
-    def __init__(self, player_: player.Player):
-        self.player = player_
+class NewEntityEvent(EntityEvent):
+    pass
 
 
-class PlayerMovedEvent(Event):
-    def __init__(self, former_pos: Tuple[float, float], new_pos: Tuple[float, float]):
-        self.former_pos = former_pos
-        self.new_pos = new_pos
+class ForwardTimeEvent(EntityEvent):
+    pass
 
 
-# class PlayerBlockedEvent(Event):
-#     pass
+class MovedEntityEvent(EntityEvent):
+    pass
 
 
-class NewObstacleEvent(Event):
-    def __init__(self, obstacle_: obstacle.Obstacle):
-        self.obstacle = obstacle_
+class HitEntityEvent(EntityEvent):
+    pass
 
 
-class DeleteObstacleEvent(Event):
-    def __init__(self, obstacle_: obstacle.Obstacle):
-        self.obstacle = obstacle_
+class RemovingEntityEvent(EntityEvent):
+    pass
 
 
-class ObstacleBombedEvent(Event):
+class RemovedEntityEvent(EntityEvent):
     pass

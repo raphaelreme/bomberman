@@ -5,80 +5,45 @@ import pygame
 from ..designpattern import event
 from ..designpattern import observer
 from ..model import events
-from ..model import obstacle
 from ..model import maze
-from . import obstacle_view
-from . import player_view
+from . import inflate_to_reality
+from . import entity_view
 from . import view
 
 
-class MazeView(view.View, observer.Observer):
-    background_location = 'background.png'
+class MazeView(view.ImageView, observer.Observer):
+    def __init__(self, maze_: maze.Maze) -> None:
+        super().__init__(
+            pygame.surface.Surface(inflate_to_reality(maze_.size)),  # pylint: disable = c-extension-no-member
+            (0, 0),
+        )
 
-    def __init__(self, maze_: maze.Maze):
-        super().__init__()
         self.maze = maze_
         self.maze.add_observer(self)
 
-        self.bomb_views = []
-        self.obstacle_views = []
-        self.player_views = []
+        # Select according to maze level ?
+        self.style = 0
+        background = view.load_image(f"bg{self.style + 1}.png", inflate_to_reality((1, 1)))
 
-        for obstacle_ in self.maze.obstacles:
-            self.create_obstacle_view(obstacle_)
-        for bomb in self.maze.bombs:
-            self.create_obstacle_view(bomb)
-        for player_ in self.maze.players:
-            self.player_views.append(player_view.PlayerView(player_))
+        for i in range(self.maze.size[0]):
+            for j in range(self.maze.size[1]):
+                self.image.blit(background, inflate_to_reality((i, j)))
 
-        box_size = obstacle.Obstacle.size
-        background_box = view.View.load_image(self.background_location, box_size)
-        self.image = pygame.surface.Surface(self.maze.size)  # pylint: disable = c-extension-no-member
+        self.entity_views = {entity_view.EntityView.from_entity(entity_) for entity_ in self.maze.entities}
 
-        for i in range(self.maze.height):
-            for j in range(self.maze.width):
-                self.image.blit(background_box, (j * box_size[0], i * box_size[1]))
-
-    def display(self):
+    def display(self) -> None:
         super().display()
 
-        for obstacle_ in self.obstacle_views:
-            obstacle_.display()
-        for bomb_ in self.bomb_views:
-            bomb_.display()
-        for player in self.player_views:
-            player.display()
+        for view_ in sorted(self.entity_views):
+            view_.display()
 
-    def notify(self, event_: event.Event):
-        if isinstance(event_, events.NewObstacleEvent):
-            self.create_obstacle_view(event_.obstacle)
-
-        elif isinstance(event_, events.NewPlayerEvent):
-            self.player_views.append(player_view.PlayerView(event_.player))
-
-        elif isinstance(event_, events.DeleteObstacleEvent):
-            obstacle_ = event_.obstacle
-            if isinstance(obstacle_, obstacle.Bomb):
-                for bomb_view_ in self.bomb_views:
-                    if bomb_view_.obstacle == obstacle_:
-                        self.bomb_views.remove(bomb_view_)
-                        break
-            else:
-                for obstacle_view_ in self.obstacle_views:
-                    if obstacle_view_.obstacle == obstacle_:
-                        self.obstacle_views.remove(obstacle_view_)
-                        break
-
-        elif isinstance(event_, events.DeletePlayerEvent):
-            for player_view_ in self.player_views:
-                if player_view_.player == event_.player:
-                    self.player_views.remove(player_view_)
+    def notify(self, event_: event.Event) -> None:
+        if isinstance(event_, events.NewEntityEvent):
+            self.entity_views.add(entity_view.EntityView.from_entity(event_.entity))
+            event_.handled = True
+            return
+        if isinstance(event_, events.RemovedEntityEvent):
+            for view_ in self.entity_views:
+                if view_.entity == event_.entity:
+                    self.entity_views.remove(view_)
                     break
-
-    def create_obstacle_view(self, obstacle_: obstacle.Obstacle):
-        if isinstance(obstacle_, obstacle.WoodWall):
-            self.obstacle_views.append(obstacle_view.WoodWallView(obstacle_))
-        elif isinstance(obstacle_, obstacle.StoneWall):
-            self.obstacle_views.append(obstacle_view.StoneWallView(obstacle_))
-        elif isinstance(obstacle_, obstacle.Bomb):
-            self.bomb_views.append(obstacle_view.BombView(obstacle_))

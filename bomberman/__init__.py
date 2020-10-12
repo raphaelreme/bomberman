@@ -8,4 +8,4 @@ from . import view
 from .version import __version__
 
 
-__all__ = ['controller', 'designpattern', 'model', 'view']
+__all__ = ["controller", "designpattern", "model", "view"]
